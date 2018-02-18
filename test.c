@@ -28,26 +28,28 @@ static void test_parse_value_null() {
     value_object v;
     v.type = VALUE_NULL;
     EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "null"));
-    EXPECT_EQ_INT(VALUE_NULL, get_value_object_type(&v));
+    EXPECT_EQ_INT(VALUE_NULL, get_value_type(&v));
 }
 
 static void test_parse_value_false() {
     value_object v;
     v.type = VALUE_NULL;
     EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "false"));
-    EXPECT_EQ_INT(VALUE_FALSE, get_value_object_type(&v))
+    EXPECT_EQ_INT(VALUE_FALSE, get_value_type(&v))
 }
 
 static void test_parse_value_true() {
     value_object v;
     v.type = VALUE_NULL;
     EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "true"));
-    EXPECT_EQ_INT(VALUE_TRUE, get_value_object_type(&v))
+    EXPECT_EQ_INT(VALUE_TRUE, get_value_type(&v))
 }
 
 /**
  * 缺少对异常结果的测试
  * 缺少另外两个渠道的测试
+ *
+ * 先解决string渠道的解析
  */
 /*#define TEST_BASE_SUB(expect, a, b) \
     EXPECT_EQ_INT(expect, base_sub(a, b));\

@@ -1,6 +1,8 @@
 #include "parse_value.h"
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 /**
  * value解析器
@@ -10,8 +12,16 @@
  * Date: 2018-02-15
  */
 
+#ifndef CJSON_PARSE_STACK_INIT_SIZE
+#define CJOSN_PARSE_STACK_INIT_SIZE 256
+#endif
+
+
 typedef struct {
     const char *json;
+    char *stack;
+    size_t top;
+    size_t len;
 } value_context;
 
 /**
@@ -22,6 +32,9 @@ typedef struct {
 static void init_value_context(value_context *context, const char *json) {
     assert(context != NULL);
     context->json = json;
+    context->top = 0;
+    context->len = 0;
+    context->stack = NULL;
 }
 
 /**
@@ -69,6 +82,66 @@ static int parse_value_literal(value_object *object, value_context *context, con
     context->json = p;
     object->type = type;
     return PARSE_VALUE_OK;
+}
+
+/**
+ * 上下文入栈操作
+ *
+ * @param context
+ */
+static char *parse_value_context_push(value_context *context, size_t size) {
+    char *ret;
+    if (context->top + size >= context->len) {
+        if (context->stack == NULL) {
+            context->len = CJOSN_PARSE_STACK_INIT_SIZE;
+        }
+        while (context->top + size >= context->len) {
+            context->len += context->len >> 1;
+        }
+        context->stack = (char *) realloc(context->stack, context->len);
+    }
+    ret = context->stack + context->top;
+    context->top += size;
+    return ret;
+}
+
+static char *parse_value_context_pop(value_context *context, size_t size) {
+    context->top -= size;
+    return context->stack + context->top;
+}
+
+static void parse_value_set_string(value_object *object, const char *stack, size_t len) {
+    object->n.s.s = (char *) malloc(len + 1);
+    memcpy(object->n.s.s, stack, len);
+    object->n.s.s[len] = '\0';
+    object->n.s.len = len;
+    object->type = VALUE_STRING;
+}
+
+/**
+ * 解析值字符串
+ *
+ * @param object
+ * @param context
+ * @return
+ */
+static int parse_value_string(value_object *object, value_context *context) {
+    assert(*context->json == '"');
+    context->json++;
+    size_t head = context->top, len;
+    const char *p = context->json;
+    for (int i = 0; p[i] != '\0'; ++i) {
+        if (*p == '"') {
+            /* 复制字符串 */
+            len = context->top - head;
+            parse_value_set_string(object, parse_value_context_pop(context, len), len);
+            return PARSE_VALUE_OK;
+        }
+        *parse_value_context_push(context, sizeof(char)) = *p;
+    }
+    context->top = head;
+    return PARSE_VALUE_INVALID;
+
 }
 
 /**
@@ -124,7 +197,7 @@ int parse_value(value_object *object, const char *json) {
  * @param object
  * @return
  */
-value_type get_value_object_type(value_object *object) {
+value_type get_value_type(value_object *object) {
     assert(object != NULL);
     return object->type;
 }
