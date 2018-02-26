@@ -106,19 +106,13 @@ static int parse_value_literal(value_object *object, value_context *context, con
     size_t i;
     for (i = 0; literal[i + 1] != '\0'; ++i) {
         if (p[i] != literal[i + 1]) {
-            /* 解析时出现错误 */
             return PARSE_VALUE_INVALID;
         }
     }
     p += i;
     context->json = p;
-
-    whitespace_value_context(context);
-    if (*context->json == ',' || *context->json == ']') {
-        object->type = type;
-        return PARSE_VALUE_OK;
-    }
-    return PARSE_VALUE_MISS_COMMA_OR_SQUARE_BRACKET;
+    object->type = type;
+    return PARSE_VALUE_OK;
 }
 
 /**
@@ -161,31 +155,42 @@ static int parse_value_array(value_object *object, value_context *context) {
     size_t head = context->top;
     size_t len;
     size_t size;
+    whitespace_value_context(context);
+    if (*context->json == ']') {
+        object->type = VALUE_ARRAY;
+        object->u.v.size = 0;
+        object->u.v.object = NULL;
+        return PARSE_VALUE_OK;
+    }
+
     for (size = 0;; ++size) {
-        int ret;
         value_object v;
         init_value_object(&v);
         whitespace_value_context(context);
-        if ((ret = parse_value_channel(&v, context)) == PARSE_VALUE_OK) {
-            *(value_object *) parse_value_context_push(context, sizeof(value_object)) = v;
-            if (*context->json++ == ']') {
-                break;
-            }
-        } else {
+        int ret;
+        if ((ret = parse_value_channel(&v, context)) != PARSE_VALUE_OK) {
+            /* 元素解析中出现问题 */
             return ret;
+        }
+        *(value_object *) parse_value_context_push(context, sizeof(value_object)) = v;
+        if (*context->json == ',') {
+            context->json++;
+        } else if (*context->json == ']') {
+            context->json++;
+            break;
+        } else {
+            /* 元素出现冗余字符 */
+            return PARSE_VALUE_INVALID;
         }
     }
     len = context->top - head;
     context->top = head;
-    whitespace_value_context(context);
-    if (*context->json == ',' || *context->json == ']' || *context->json == '\0') {
-        object->type = VALUE_ARRAY;
-        object->u.v.size = size;
-        object->u.v.object = (value_object *) malloc(len);
-        memcpy(object->u.v.object, context->stack + context->top, len);
-        return PARSE_VALUE_OK;
-    }
-    return PARSE_VALUE_MISS_COMMA_OR_SQUARE_BRACKET;
+
+    object->type = VALUE_ARRAY;
+    object->u.v.size = size;
+    object->u.v.object = (value_object *) malloc(len);
+    memcpy(object->u.v.object, context->stack + context->top, len);
+    return PARSE_VALUE_OK;
 }
 
 /**
@@ -225,7 +230,13 @@ int parse_value(value_object *object, const char *json) {
     value_context c;
     init_value_context(&c, json);
     whitespace_value_context(&c);
-    int ret = parse_value_channel(object, &c);
+    int ret;
+    if ((ret = parse_value_channel(object, &c)) == PARSE_VALUE_OK) {
+        if (*c.json != '\0') {
+            /* 元素出现冗余字符 */
+            ret = LEPT_PARSE_ROOT_NOT_SINGULAR;
+        }
+    }
     free(c.stack);
     return ret;
 }

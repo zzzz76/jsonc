@@ -31,47 +31,60 @@ static int test_pass = 0;
 static void test_parse_value_null() {
     value_object v;
     v.type = VALUE_NULL;
-    EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "null"));
+    EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "null,"));
     EXPECT_EQ_INT(VALUE_NULL, value_object_get_type(&v));
 }
 
 static void test_parse_value_false() {
     value_object v;
     v.type = VALUE_NULL;
-    EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "false"));
+    EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "false,"));
     EXPECT_EQ_INT(VALUE_FALSE, value_object_get_type(&v))
 }
 
 static void test_parse_value_true() {
     value_object v;
     v.type = VALUE_NULL;
-    EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "true"));
+    EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "true,"));
     EXPECT_EQ_INT(VALUE_TRUE, value_object_get_type(&v))
 }
 
 static void test_parse_value_string() {
     value_object v;
     v.type = VALUE_NULL;
-    EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "\"Hello\""));
+    EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "\"Hello\","));
     EXPECT_EQ_INT(VALUE_STRING, value_object_get_type(&v));
     EXPECT_EQ_STRING("Hello", value_object_get_string(&v), value_object_get_string_len(&v));
     free(v.u.s.s);
-    EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "\"\""));
+    EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "\"\","));
     EXPECT_EQ_INT(VALUE_STRING, value_object_get_type(&v));
     EXPECT_EQ_STRING("", value_object_get_string(&v), value_object_get_string_len(&v));
     free(v.u.s.s);
 }
 
 static void test_parse_value_array() {
-    value_object v;
-    init_value_object(&v);
-    EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "[false,[false,true]]"));
-    EXPECT_EQ_INT(VALUE_ARRAY, value_object_get_type(&v));
-    EXPECT_EQ_INT(VALUE_FALSE, value_object_get_array_element(&v)[0].type);
-    EXPECT_EQ_INT(VALUE_ARRAY, value_object_get_array_element(&v)[1].type);
-    EXPECT_EQ_INT(VALUE_FALSE, value_object_get_array_element(&v)[1].u.v.object[0].type);
-    EXPECT_EQ_INT(VALUE_TRUE, value_object_get_array_element(&v)[1].u.v.object[1].type);
-    free_value(&v);
+    do {
+        value_object v;
+        init_value_object(&v);
+        EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "[false,[false,true]]"));
+        EXPECT_EQ_INT(VALUE_ARRAY, value_object_get_type(&v));
+        EXPECT_EQ_INT(VALUE_FALSE, value_object_get_array_element(&v)[0].type);
+        EXPECT_EQ_INT(VALUE_ARRAY, value_object_get_array_element(&v)[1].type);
+        EXPECT_EQ_INT(VALUE_FALSE, value_object_get_array_element(&v)[1].u.v.object[0].type);
+        EXPECT_EQ_INT(VALUE_TRUE, value_object_get_array_element(&v)[1].u.v.object[1].type);
+        free_value(&v);
+    } while(0);
+
+    do {
+        value_object v;
+        init_value_object(&v);
+        EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "[[[]],[[]]  ]"));
+        EXPECT_EQ_INT(VALUE_ARRAY, value_object_get_type(&v));
+        EXPECT_EQ_INT(VALUE_ARRAY, value_object_get_array_element(&v)[0].type);
+        EXPECT_EQ_INT(VALUE_ARRAY, value_object_get_array_element(&v)[0].u.v.object[0].type);
+        free_value(&v);
+    } while(0);
+
 }
 
 static void test_base() {
