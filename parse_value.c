@@ -16,13 +16,16 @@
 #define CJOSN_PARSE_STACK_INIT_SIZE 256
 #endif
 
-
 typedef struct {
     const char *json;
     char *stack;
     size_t top;
     size_t len;
 } value_context;
+
+static int parse_value_channel(value_object *object, value_context *context);
+
+void value_object_set_string(value_object *object, value_context *context, size_t head);
 
 /**
  * 初始化值上下文
@@ -42,9 +45,12 @@ static void init_value_context(value_context *context, const char *json) {
  *
  * @param object
  */
-static void init_value_object(value_object *object) {
+void init_value_object(value_object *object) {
     assert(object != NULL);
     object->type = VALUE_NULL;
+    object->u.n = 0;
+    object->u.s.s = NULL;
+    object->u.s.len = 0;
 }
 
 /**
@@ -61,36 +67,14 @@ static void whitespace_value_context(value_context *context) {
 }
 
 /**
- * 逐字解析值
- *
- * @param object
- * @param json
- * @param literal
- * @param type
- * @return
- */
-static int parse_value_literal(value_object *object, value_context *context, const char *literal, value_type type) {
-    assert(*context->json == literal[0]);
-    const char *p = context->json;
-    size_t i;
-    for (i = 0; literal[i] != '\0'; ++i) {
-        if (p[i] != literal[i]) {
-            return PARSE_VALUE_INVALID;
-        }
-    }
-    p += i;
-    context->json = p;
-    object->type = type;
-    return PARSE_VALUE_OK;
-}
-
-/**
  * 上下文入栈操作
  *
  * @param context
+ * @param size
+ * @return
  */
-static char *parse_value_context_push(value_context *context, size_t size) {
-    char *ret;
+static void *parse_value_context_push(value_context *context, size_t size) {
+    void *ret;
     if (context->top + size >= context->len) {
         if (context->stack == NULL) {
             context->len = CJOSN_PARSE_STACK_INIT_SIZE;
@@ -105,21 +89,40 @@ static char *parse_value_context_push(value_context *context, size_t size) {
     return ret;
 }
 
-static char *parse_value_context_pop(value_context *context, size_t size) {
-    context->top -= size;
-    return context->stack + context->top;
-}
+/**
+ * 解析布尔类型
+ *
+ * @param object
+ * @param json
+ * @param literal
+ * @param type
+ * @return
+ */
+static int parse_value_literal(value_object *object, value_context *context, const char *literal, value_type type) {
+    /* 解析过程 */
+    assert(*context->json == literal[0]);
+    context->json++;
+    const char *p = context->json;
+    size_t i;
+    for (i = 0; literal[i + 1] != '\0'; ++i) {
+        if (p[i] != literal[i + 1]) {
+            /* 解析时出现错误 */
+            return PARSE_VALUE_INVALID;
+        }
+    }
+    p += i;
+    context->json = p;
 
-static void parse_value_set_string(value_object *object, const char *stack, size_t len) {
-    object->n.s.s = (char *) malloc(len + 1);
-    memcpy(object->n.s.s, stack, len);
-    object->n.s.s[len] = '\0';
-    object->n.s.len = len;
-    object->type = VALUE_STRING;
+    whitespace_value_context(context);
+    if (*context->json == ',' || *context->json == ']') {
+        object->type = type;
+        return PARSE_VALUE_OK;
+    }
+    return PARSE_VALUE_MISS_COMMA_OR_SQUARE_BRACKET;
 }
 
 /**
- * 解析值字符串
+ * 解析字符串
  *
  * @param object
  * @param context
@@ -128,16 +131,17 @@ static void parse_value_set_string(value_object *object, const char *stack, size
 static int parse_value_string(value_object *object, value_context *context) {
     assert(*context->json == '"');
     context->json++;
-    size_t head = context->top, len;
+    size_t head = context->top;
     const char *p = context->json;
     for (int i = 0; p[i] != '\0'; ++i) {
-        if (*p == '"') {
+        if (p[i] == '"') {
             /* 复制字符串 */
-            len = context->top - head;
-            parse_value_set_string(object, parse_value_context_pop(context, len), len);
+            value_object_set_string(object, context, head);
+            context->top = head;
+            context->json = p + i + 1;
             return PARSE_VALUE_OK;
         }
-        *parse_value_context_push(context, sizeof(char)) = *p;
+        *(char *) parse_value_context_push(context, sizeof(char)) = p[i];
     }
     context->top = head;
     return PARSE_VALUE_INVALID;
@@ -145,7 +149,47 @@ static int parse_value_string(value_object *object, value_context *context) {
 }
 
 /**
- * 分渠道解析值
+ * 解析集合
+ *
+ * @param object
+ * @param context
+ * @return
+ */
+static int parse_value_array(value_object *object, value_context *context) {
+    assert(*context->json == '[');
+    context->json++;
+    size_t head = context->top;
+    size_t len;
+    size_t size;
+    for (size = 0;; ++size) {
+        int ret;
+        value_object v;
+        init_value_object(&v);
+        whitespace_value_context(context);
+        if ((ret = parse_value_channel(&v, context)) == PARSE_VALUE_OK) {
+            *(value_object *) parse_value_context_push(context, sizeof(value_object)) = v;
+            if (*context->json++ == ']') {
+                break;
+            }
+        } else {
+            return ret;
+        }
+    }
+    len = context->top - head;
+    context->top = head;
+    whitespace_value_context(context);
+    if (*context->json == ',' || *context->json == ']' || *context->json == '\0') {
+        object->type = VALUE_ARRAY;
+        object->u.v.size = size;
+        object->u.v.object = (value_object *) malloc(len);
+        memcpy(object->u.v.object, context->stack + context->top, len);
+        return PARSE_VALUE_OK;
+    }
+    return PARSE_VALUE_MISS_COMMA_OR_SQUARE_BRACKET;
+}
+
+/**
+ * 分渠道解析
  *
  * @param object
  * @param context
@@ -160,7 +204,9 @@ static int parse_value_channel(value_object *object, value_context *context) {
         case 't':
             return parse_value_literal(object, context, "true", VALUE_TRUE);
         case '"':
-            break;
+            return parse_value_string(object, context);
+        case '[':
+            return parse_value_array(object, context);
         case '\0':
             return PARSE_VALUE_EXPECT;
         default:
@@ -169,7 +215,7 @@ static int parse_value_channel(value_object *object, value_context *context) {
 }
 
 /**
- * 解析值
+ * 进行上下文封装
  *
  * @param object
  * @param json
@@ -178,28 +224,51 @@ static int parse_value_channel(value_object *object, value_context *context) {
 int parse_value(value_object *object, const char *json) {
     value_context c;
     init_value_context(&c, json);
-    init_value_object(object);
     whitespace_value_context(&c);
-    int ret;
-    /* 若解析结束 */
-    if ((ret = parse_value_channel(object, &c)) == PARSE_VALUE_OK) {
-        whitespace_value_context(&c);
-        if (*c.json != '\0') {
-            ret = PARSE_VALUE_INVALID;
-        }
-    }
+    int ret = parse_value_channel(object, &c);
+    free(c.stack);
     return ret;
 }
 
-/**
- * 获取值对象类型
- *
- * @param object
- * @return
- */
-value_type get_value_type(value_object *object) {
+void free_value(value_object *object) {
+    if (object->type == VALUE_STRING) {
+        free(object->u.s.s);
+    }
+    if (object->type == VALUE_ARRAY) {
+        for (size_t i = 0; i < object->u.v.size; ++i) {
+            free_value(object->u.v.object + i);
+            free(object->u.v.object + i);
+        }
+    }
+}
+
+value_type value_object_get_type(value_object *object) {
     assert(object != NULL);
     return object->type;
+}
+
+void value_object_set_string(value_object *object, value_context *context, size_t head) {
+    size_t len = context->top - head;
+    object->u.s.s = (char *) malloc(len + 1);
+    memcpy(object->u.s.s, context->stack + head, len);
+    object->u.s.s[len] = '\0';
+    object->u.s.len = len;
+    object->type = VALUE_STRING;
+}
+
+const char *value_object_get_string(value_object *object) {
+    assert(object != NULL && object->type == VALUE_STRING);
+    return object->u.s.s;
+}
+
+size_t value_object_get_string_len(value_object *object) {
+    assert(object != NULL && object->type == VALUE_STRING);
+    return object->u.s.len;
+}
+
+value_object *value_object_get_array_element(value_object *object) {
+    assert(object != NULL && object->type == VALUE_ARRAY);
+    return object->u.v.object;
 }
 
 

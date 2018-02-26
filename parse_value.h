@@ -1,3 +1,4 @@
+#include <stddef.h>
 /**
  * Created with CLion
  * User: zzzz76
@@ -7,31 +8,48 @@
 #ifndef CJSON_PARSE_VALUE_H
 #define CJSON_PARSE_VALUE_H
 
-#include <glob.h>
 
 typedef enum {
-    VALUE_NULL, VALUE_FALSE, VALUE_TRUE, VALUE_STRING
+    VALUE_NULL, VALUE_FALSE, VALUE_TRUE, VALUE_STRING, VALUE_ARRAY
 } value_type;
 
-typedef struct {
+typedef struct value_object value_object;
+
+struct value_object {
     union {
         struct {
             char *s;
             size_t len;
         } s;
+        struct {
+            value_object *object;
+            size_t size;
+        } v;
         double n;
-    } n;
+    } u;
     value_type type;
-} value_object;
+};
 
 enum {
     PARSE_VALUE_OK = 0,
     PARSE_VALUE_EXPECT,
-    PARSE_VALUE_INVALID
+    PARSE_VALUE_INVALID,
+    PARSE_VALUE_MISS_COMMA_OR_SQUARE_BRACKET,
+    LEPT_PARSE_ROOT_NOT_SINGULAR
 };
 
 int parse_value(value_object *object, const char *json);
 
-value_type get_value_type(value_object *object);
+value_type value_object_get_type(value_object *object);
+
+const char *value_object_get_string(value_object *object);
+
+size_t value_object_get_string_len(value_object *object);
+
+void free_value(value_object *object);
+
+void init_value_object(value_object *object);
+
+value_object *value_object_get_array_element(value_object *object);
 
 #endif //CJSON_PARSE_VALUE_H
