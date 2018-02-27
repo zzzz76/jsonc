@@ -78,7 +78,7 @@ static void test_parse_value_array() {
     do {
         value_object v;
         init_value_object(&v);
-        EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "[[[]],[[]]  ]"));
+        EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "[[[]]]"));
         EXPECT_EQ_INT(VALUE_ARRAY, value_object_get_type(&v));
         EXPECT_EQ_INT(VALUE_ARRAY, value_object_get_array_element(&v)[0].type);
         EXPECT_EQ_INT(VALUE_ARRAY, value_object_get_array_element(&v)[0].u.v.object[0].type);

@@ -154,43 +154,50 @@ static int parse_value_array(value_object *object, value_context *context) {
     context->json++;
     size_t head = context->top;
     size_t len;
-    size_t size;
+    size_t size = 0;
+    int ret;
     whitespace_value_context(context);
     if (*context->json == ']') {
+        context->json++;
         object->type = VALUE_ARRAY;
         object->u.v.size = 0;
         object->u.v.object = NULL;
         return PARSE_VALUE_OK;
     }
-
-    for (size = 0;; ++size) {
+    for (;;) {
         value_object v;
         init_value_object(&v);
         whitespace_value_context(context);
-        int ret;
         if ((ret = parse_value_channel(&v, context)) != PARSE_VALUE_OK) {
             /* 元素解析中出现问题 */
-            return ret;
+            break;
         }
         *(value_object *) parse_value_context_push(context, sizeof(value_object)) = v;
+        size++;
         if (*context->json == ',') {
             context->json++;
         } else if (*context->json == ']') {
             context->json++;
-            break;
+            len = context->top - head;
+            context->top = head;
+
+            object->type = VALUE_ARRAY;
+            object->u.v.size = size;
+            object->u.v.object = (value_object *) malloc(len);
+            memcpy(object->u.v.object, context->stack + context->top, len);
+            return PARSE_VALUE_OK;
         } else {
             /* 元素出现冗余字符 */
-            return PARSE_VALUE_INVALID;
+            ret = PARSE_VALUE_INVALID;
+            break;
         }
     }
-    len = context->top - head;
-    context->top = head;
+    for (int i = 0; i < size; ++i) {
+        context->top -= sizeof(value_object);
+        free_value((value_object *) (context->stack + context->top));
+    }
+    return ret;
 
-    object->type = VALUE_ARRAY;
-    object->u.v.size = size;
-    object->u.v.object = (value_object *) malloc(len);
-    memcpy(object->u.v.object, context->stack + context->top, len);
-    return PARSE_VALUE_OK;
 }
 
 /**
@@ -247,9 +254,9 @@ void free_value(value_object *object) {
     }
     if (object->type == VALUE_ARRAY) {
         for (size_t i = 0; i < object->u.v.size; ++i) {
-            free_value(object->u.v.object + i);
-            free(object->u.v.object + i);
+            free_value(object->u.v.object+i);
         }
+        free(object->u.v.object);
     }
 }
 
