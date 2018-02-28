@@ -9,7 +9,7 @@
 #define CJSON_PARSE_VALUE_H
 
 typedef enum {
-    VALUE_NULL, VALUE_FALSE, VALUE_TRUE, VALUE_STRING, VALUE_ARRAY
+    VALUE_NULL, VALUE_FALSE, VALUE_TRUE, VALUE_STRING, VALUE_ARRAY, VALUE_OBJECT
 } value_type;
 
 typedef struct cjson_value cjson_value;
@@ -47,6 +47,8 @@ const char *get_value_string(cjson_value *v);
 size_t get_value_string_len(cjson_value *v);
 
 void free_value(cjson_value *v);
+
+void free_member(cjson_member *m);
 
 void init_value(cjson_value *v);
 

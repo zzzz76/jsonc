@@ -81,17 +81,24 @@ static void test_parse_value_array() {
         EXPECT_EQ_INT(VALUE_TRUE, get_value_array(&value)[1].u.a.array[1].type);
         free_value(&value);
     } while(0);
-
     do {
-        cjson_value v;
-        init_value(&v);
-        EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&v, "[[[]]]"));
-        EXPECT_EQ_INT(VALUE_ARRAY, get_value_type(&v));
-        EXPECT_EQ_INT(VALUE_ARRAY, get_value_array(&v)[0].type);
-        EXPECT_EQ_INT(VALUE_ARRAY, get_value_array(&v)[0].u.a.array[0].type);
-        free_value(&v);
+        cjson_value value;
+        init_value(&value);
+        EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&value, "[[[]]]"));
+        EXPECT_EQ_INT(VALUE_ARRAY, get_value_type(&value));
+        EXPECT_EQ_INT(VALUE_ARRAY, get_value_array(&value)[0].type);
+        EXPECT_EQ_INT(VALUE_ARRAY, get_value_array(&value)[0].u.a.array[0].type);
+        free_value(&value);
     } while(0);
+}
 
+static void test_parse_value_object() {
+    do {
+        cjson_value value;
+        init_value(&value);
+        EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&value, "{\"apple\":true,\"fruit\":{\"banna\":true}}"));
+        free_value(&value);
+    } while(0);
 }
 
 static void test_base() {
@@ -100,7 +107,7 @@ static void test_base() {
     test_parse_value_true();
     test_parse_value_string();
     test_parse_value_array();
-    
+    test_parse_value_object();
 }
 
 int main() {
