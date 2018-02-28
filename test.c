@@ -29,37 +29,44 @@ static int test_pass = 0;
     EXPECT_EQ_BASE(sizeof(expect) - 1 == alength && memcmp(expect, actual, alength) == 0, expect, actual, "%s");
 
 static void test_parse_value_null() {
-    cjson_value v;
-    v.type = VALUE_NULL;
-    EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&v, "null,"));
-    EXPECT_EQ_INT(VALUE_NULL, get_value_type(&v));
+    cjson_value value;
+    init_value(&value);
+    EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&value, "null"));
+    EXPECT_EQ_INT(VALUE_NULL, get_value_type(&value));
 }
 
 static void test_parse_value_false() {
-    cjson_value v;
-    v.type = VALUE_NULL;
-    EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&v, "false,"));
-    EXPECT_EQ_INT(VALUE_FALSE, get_value_type(&v))
+    cjson_value value;
+    init_value(&value);
+    EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&value, "false"));
+    EXPECT_EQ_INT(VALUE_FALSE, get_value_type(&value));
 }
 
 static void test_parse_value_true() {
-    cjson_value v;
-    v.type = VALUE_NULL;
-    EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&v, "true,"));
-    EXPECT_EQ_INT(VALUE_TRUE, get_value_type(&v))
+    cjson_value value;
+    init_value(&value);
+    EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&value, "true"));
+    EXPECT_EQ_INT(VALUE_TRUE, get_value_type(&value));
 }
 
 static void test_parse_value_string() {
-    cjson_value v;
-    v.type = VALUE_NULL;
-    EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&v, "\"Hello\","));
-    EXPECT_EQ_INT(VALUE_STRING, get_value_type(&v));
-    EXPECT_EQ_STRING("Hello", get_value_string_len(&v), get_value_string_len(&v));
-    free(v.u.s.s);
-    EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&v, "\"\","));
-    EXPECT_EQ_INT(VALUE_STRING, get_value_type(&v));
-    EXPECT_EQ_STRING("", get_value_string(&v), get_value_string_len(&v));
-    free(v.u.s.s);
+    do {
+        cjson_value value;
+        init_value(&value);
+        EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&value, "\"Hello\""));
+        EXPECT_EQ_INT(VALUE_STRING, get_value_type(&value));
+        EXPECT_EQ_STRING("Hello", get_value_string(&value), get_value_string_len(&value));
+        free_value(&value);
+    } while(0);
+    do {
+        cjson_value value;
+        init_value(&value);
+        EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&value, "\"\""));
+        EXPECT_EQ_INT(VALUE_STRING, get_value_type(&value));
+        EXPECT_EQ_STRING("", get_value_string(&value), get_value_string_len(&value));
+        free_value(&value);
+    } while(0);
+
 }
 
 static void test_parse_value_array() {
@@ -88,10 +95,10 @@ static void test_parse_value_array() {
 }
 
 static void test_base() {
-    /*test_parse_value_null();
+    test_parse_value_null();
     test_parse_value_false();
     test_parse_value_true();
-    test_parse_value_string();*/
+    test_parse_value_string();
     test_parse_value_array();
     
 }

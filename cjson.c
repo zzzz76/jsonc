@@ -25,8 +25,6 @@ typedef struct {
 
 static int parse_value(cjson_value *v, cjson_context *c);
 
-void set_value_string(cjson_value *v, cjson_context *c, size_t head);
-
 /**
  * 初始化缓冲区
  *
@@ -126,16 +124,22 @@ static int parse_value_string(cjson_value *v, cjson_context *c) {
     assert(*c->json == '"');
     c->json++;
     size_t head = c->top;
-    const char *p = c->json;
-    for (int i = 0; p[i] != '\0'; ++i) {
-        if (p[i] == '"') {
+    size_t len;
+    for (int i = 0; c->json[i] != '\0'; ++i) {
+        if (c->json[i] == '"') {
             /* 复制字符串 */
-            set_value_string(v, c, head);
+            c->json += i + 1;
+            len = c->top -head;
             c->top = head;
-            c->json = p + i + 1;
+
+            v->u.s.s = (char *) malloc(len + 1);
+            memcpy(v->u.s.s, c->stack+c->top, len);
+            v->u.s.s[len] = '\0';
+            v->u.s.len = len;
+            v->type = VALUE_STRING;
             return PARSE_VALUE_OK;
         }
-        *(char *) push_context(c, sizeof(char)) = p[i];
+        *(char *) push_context(c, sizeof(char)) = c->json[i];
     }
     c->top = head;
     return PARSE_VALUE_INVALID;
@@ -241,6 +245,7 @@ int cjson_parse(cjson_value *v, const char *json) {
     if ((ret = parse_value(v, &context)) == PARSE_VALUE_OK) {
         if (*context.json != '\0') {
             /* 元素出现冗余字符 */
+            v->type = VALUE_NULL;
             ret = LEPT_PARSE_ROOT_NOT_SINGULAR;
         }
     }
@@ -263,15 +268,6 @@ void free_value(cjson_value *v) {
 value_type get_value_type(cjson_value *v) {
     assert(v != NULL);
     return v->type;
-}
-
-void set_value_string(cjson_value *object, cjson_context *context, size_t head) {
-    size_t len = context->top - head;
-    object->u.s.s = (char *) malloc(len + 1);
-    memcpy(object->u.s.s, context->stack + head, len);
-    object->u.s.s[len] = '\0';
-    object->u.s.len = len;
-    object->type = VALUE_STRING;
 }
 
 const char *get_value_string(cjson_value *object) {
