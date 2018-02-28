@@ -1,4 +1,4 @@
-#include "parse_value.h"
+#include "cjson.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,59 +29,59 @@ static int test_pass = 0;
     EXPECT_EQ_BASE(sizeof(expect) - 1 == alength && memcmp(expect, actual, alength) == 0, expect, actual, "%s");
 
 static void test_parse_value_null() {
-    value_object v;
+    cjson_value v;
     v.type = VALUE_NULL;
-    EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "null,"));
-    EXPECT_EQ_INT(VALUE_NULL, value_object_get_type(&v));
+    EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&v, "null,"));
+    EXPECT_EQ_INT(VALUE_NULL, get_value_type(&v));
 }
 
 static void test_parse_value_false() {
-    value_object v;
+    cjson_value v;
     v.type = VALUE_NULL;
-    EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "false,"));
-    EXPECT_EQ_INT(VALUE_FALSE, value_object_get_type(&v))
+    EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&v, "false,"));
+    EXPECT_EQ_INT(VALUE_FALSE, get_value_type(&v))
 }
 
 static void test_parse_value_true() {
-    value_object v;
+    cjson_value v;
     v.type = VALUE_NULL;
-    EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "true,"));
-    EXPECT_EQ_INT(VALUE_TRUE, value_object_get_type(&v))
+    EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&v, "true,"));
+    EXPECT_EQ_INT(VALUE_TRUE, get_value_type(&v))
 }
 
 static void test_parse_value_string() {
-    value_object v;
+    cjson_value v;
     v.type = VALUE_NULL;
-    EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "\"Hello\","));
-    EXPECT_EQ_INT(VALUE_STRING, value_object_get_type(&v));
-    EXPECT_EQ_STRING("Hello", value_object_get_string(&v), value_object_get_string_len(&v));
+    EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&v, "\"Hello\","));
+    EXPECT_EQ_INT(VALUE_STRING, get_value_type(&v));
+    EXPECT_EQ_STRING("Hello", get_value_string_len(&v), get_value_string_len(&v));
     free(v.u.s.s);
-    EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "\"\","));
-    EXPECT_EQ_INT(VALUE_STRING, value_object_get_type(&v));
-    EXPECT_EQ_STRING("", value_object_get_string(&v), value_object_get_string_len(&v));
+    EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&v, "\"\","));
+    EXPECT_EQ_INT(VALUE_STRING, get_value_type(&v));
+    EXPECT_EQ_STRING("", get_value_string(&v), get_value_string_len(&v));
     free(v.u.s.s);
 }
 
 static void test_parse_value_array() {
     do {
-        value_object v;
-        init_value_object(&v);
-        EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "[false,[false,true]]"));
-        EXPECT_EQ_INT(VALUE_ARRAY, value_object_get_type(&v));
-        EXPECT_EQ_INT(VALUE_FALSE, value_object_get_array_element(&v)[0].type);
-        EXPECT_EQ_INT(VALUE_ARRAY, value_object_get_array_element(&v)[1].type);
-        EXPECT_EQ_INT(VALUE_FALSE, value_object_get_array_element(&v)[1].u.v.object[0].type);
-        EXPECT_EQ_INT(VALUE_TRUE, value_object_get_array_element(&v)[1].u.v.object[1].type);
-        free_value(&v);
+        cjson_value value;
+        init_value(&value);
+        EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&value, "[false,[false,true]]"));
+        EXPECT_EQ_INT(VALUE_ARRAY, get_value_type(&value));
+        EXPECT_EQ_INT(VALUE_FALSE, get_value_array(&value)[0].type);
+        EXPECT_EQ_INT(VALUE_ARRAY, get_value_array(&value)[1].type);
+        EXPECT_EQ_INT(VALUE_FALSE, get_value_array(&value)[1].u.a.array[0].type);
+        EXPECT_EQ_INT(VALUE_TRUE, get_value_array(&value)[1].u.a.array[1].type);
+        free_value(&value);
     } while(0);
 
     do {
-        value_object v;
-        init_value_object(&v);
-        EXPECT_EQ_INT(PARSE_VALUE_OK, parse_value(&v, "[[[]]]"));
-        EXPECT_EQ_INT(VALUE_ARRAY, value_object_get_type(&v));
-        EXPECT_EQ_INT(VALUE_ARRAY, value_object_get_array_element(&v)[0].type);
-        EXPECT_EQ_INT(VALUE_ARRAY, value_object_get_array_element(&v)[0].u.v.object[0].type);
+        cjson_value v;
+        init_value(&v);
+        EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&v, "[[[]]]"));
+        EXPECT_EQ_INT(VALUE_ARRAY, get_value_type(&v));
+        EXPECT_EQ_INT(VALUE_ARRAY, get_value_array(&v)[0].type);
+        EXPECT_EQ_INT(VALUE_ARRAY, get_value_array(&v)[0].u.a.array[0].type);
         free_value(&v);
     } while(0);
 

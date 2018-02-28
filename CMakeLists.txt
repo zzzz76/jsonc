@@ -3,4 +3,4 @@ project(cjson C)
 
 set(CMAKE_C_STANDARD 99)
 
-add_executable(cjson parse_value.c test.c parse_value.h)
+add_executable(cjson cjson.c test.c cjson.h)
