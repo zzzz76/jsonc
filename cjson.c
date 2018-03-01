@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
+#include <bits/huge_val.h>
 
 /**
  * value解析器
@@ -319,6 +321,59 @@ static int parse_value_object(cjson_value *v, cjson_context *c) {
 
 }
 
+/* 一个json有无数种组成方式，只有符合特定条件的组成方式才是number */
+static int parse_value_number(cjson_value *v, cjson_context *c) {
+    const char *p = c->json;
+    if (*p == '-') {
+        p++;
+    }
+
+    if (*p == '0') {
+        p++;
+    } else if (*p <= '9' && *p >= '1') {
+        p++;
+        while (*p <= '9' && *p >= '0') {
+            p++;
+        }
+    } else {
+        return PARSE_VALUE_INVALID;
+    }
+
+    if (*p == '.') {
+        p++;
+        if (*p <= '9' && *p >= '0') {
+            p++;
+            while (*p <= '9' && *p >= '0') {
+                p++;
+            }
+        } else {
+            return PARSE_VALUE_INVALID;
+        }
+    }
+
+    if (*p == 'e' || *p == 'E') {
+        p ++;
+        if (*p == '+' || *p == '-') {
+            p++;
+        }
+
+        if (*p <= '9' && *p >= '0') {
+            p++;
+            while (*p <= '9' && *p >= '0') {
+                p++;
+            }
+        } else {
+            return PARSE_VALUE_INVALID;
+        }
+    }
+    errno = 0;
+    v->u.n = strtod(c->json, NULL);
+    if (errno == ERANGE && (v->u.n == HUGE_VAL || v->u.n == -HUGE_VAL))
+        return PARSE_VALUE_INVALID;
+    v->type = VALUE_NUMBER;
+    c->json = p;
+    return PARSE_VALUE_OK;
+}
 /**
  * 分渠道解析
  *
@@ -343,7 +398,7 @@ static int parse_value(cjson_value *v, cjson_context *c) {
         case '\0':
             return PARSE_VALUE_EXPECT;
         default:
-            break;
+            return parse_value_number(v, c);
     }
 }
 
@@ -398,19 +453,24 @@ value_type get_value_type(cjson_value *v) {
     return v->type;
 }
 
-const char *get_value_string(cjson_value *object) {
-    assert(object != NULL && object->type == VALUE_STRING);
-    return object->u.s.s;
+const char *get_value_string(cjson_value *v) {
+    assert(v != NULL && v->type == VALUE_STRING);
+    return v->u.s.s;
 }
 
-size_t get_value_string_len(cjson_value *object) {
-    assert(object != NULL && object->type == VALUE_STRING);
-    return object->u.s.len;
+size_t get_value_string_len(cjson_value *v) {
+    assert(v != NULL && v->type == VALUE_STRING);
+    return v->u.s.len;
 }
 
-cjson_value *get_value_array(cjson_value *object) {
-    assert(object != NULL && object->type == VALUE_ARRAY);
-    return object->u.a.array;
+cjson_value *get_value_array(cjson_value *v) {
+    assert(v != NULL && v->type == VALUE_ARRAY);
+    return v->u.a.array;
+}
+
+size_t get_value_array_size(cjson_value *v) {
+    assert(v != NULL && v->type == VALUE_ARRAY);
+    return v->u.a.size;
 }
 
 
