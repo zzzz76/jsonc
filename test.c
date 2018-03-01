@@ -25,6 +25,7 @@ static int test_pass = 0;
     } while(0);
 
 #define EXPECT_EQ_INT(expect, actual) EXPECT_EQ_BASE((expect)==(actual), expect, actual, "%d");
+#define EXPECT_EQ_DOUBLE(expect, actual) EXPECT_EQ_BASE((expect) == (actual), expect, actual, "%.17g");
 #define EXPECT_EQ_STRING(expect, actual, alength) \
     EXPECT_EQ_BASE(sizeof(expect) - 1 == alength && memcmp(expect, actual, alength + 1) == 0, expect, actual, "%s")
 
@@ -55,6 +56,47 @@ static void test_parse_value_true() {
     EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&value, "true"));
     EXPECT_EQ_INT(VALUE_TRUE, get_value_type(&value));
     free_value(&value);
+}
+
+#define TEST_NUMBER(expect, actual) \
+    do {\
+        cjson_value value;\
+        init_value(&value);\
+        EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&value, actual));\
+        EXPECT_EQ_INT(VALUE_NUMBER, get_value_type(&value));\
+        EXPECT_EQ_DOUBLE(expect, get_value_number(&value));\
+        free_value(&value);\
+    } while (0);
+static void test_parse_value_number() {
+    TEST_NUMBER(0.0, "0");
+    TEST_NUMBER(0.0, "-0");
+    TEST_NUMBER(0.0, "-0.0");
+    TEST_NUMBER(1.0, "1");
+    TEST_NUMBER(-1.0, "-1");
+    TEST_NUMBER(1.5, "1.5");
+    TEST_NUMBER(-1.5, "-1.5");
+    TEST_NUMBER(3.1416, "3.1416");
+    TEST_NUMBER(1E10, "1E10");
+    TEST_NUMBER(1e10, "1e10");
+    TEST_NUMBER(1E+10, "1E+10");
+    TEST_NUMBER(1E-10, "1E-10");
+    TEST_NUMBER(-1E10, "-1E10");
+    TEST_NUMBER(-1e10, "-1e10");
+    TEST_NUMBER(-1E+10, "-1E+10");
+    TEST_NUMBER(-1E-10, "-1E-10");
+    TEST_NUMBER(1.234E+10, "1.234E+10");
+    TEST_NUMBER(1.234E-10, "1.234E-10");
+    TEST_NUMBER(0.0, "1e-10000"); /* must underflow */
+
+    TEST_NUMBER(1.0000000000000002, "1.0000000000000002"); /* the smallest number > 1 */
+    TEST_NUMBER( 4.9406564584124654e-324, "4.9406564584124654e-324"); /* minimum denormal */
+    TEST_NUMBER(-4.9406564584124654e-324, "-4.9406564584124654e-324");
+    TEST_NUMBER( 2.2250738585072009e-308, "2.2250738585072009e-308");  /* Max subnormal double */
+    TEST_NUMBER(-2.2250738585072009e-308, "-2.2250738585072009e-308");
+    TEST_NUMBER( 2.2250738585072014e-308, "2.2250738585072014e-308");  /* Min normal positive double */
+    TEST_NUMBER(-2.2250738585072014e-308, "-2.2250738585072014e-308");
+    TEST_NUMBER( 1.7976931348623157e+308, "1.7976931348623157e+308");  /* Max double */
+    TEST_NUMBER(-1.7976931348623157e+308, "-1.7976931348623157e+308");
 }
 
 #define TEST_STRING(expect, actual) \
@@ -92,17 +134,20 @@ static void test_parse_value_array() {
     EXPECT_EQ_STRING("abc", get_value_string(&get_value_array(&value)[3]), get_value_string_len(&get_value_array(&value)[3]));
     free_value(&value);
 
-    /*init_value(&value);
+    init_value(&value);
     EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&value, "[ [ ] , [ 0 ] , [ 0 , 1 ] , [ 0 , 1 , 2 ] ]"));
     EXPECT_EQ_INT(VALUE_ARRAY, get_value_type(&value));
     EXPECT_EQ_SIZE_T(4, get_value_array_size(&value));
     for (size_t i = 0; i < 4 ; ++i) {
         EXPECT_EQ_INT(VALUE_ARRAY, get_value_type(&get_value_array(&value)[i]));
-        EXPECT_EQ_SIZE_T(i, get_value_array_size(&value));
+        EXPECT_EQ_INT(VALUE_ARRAY, get_value_type(&get_value_array(&value)[i]));
+        EXPECT_EQ_SIZE_T(i, get_value_array_size(&get_value_array(&value)[i]));
         for (size_t j = 0; j < i; ++j) {
-
+            EXPECT_EQ_INT(VALUE_NUMBER, get_value_array(&get_value_array(&value)[i])[j].type);
+            EXPECT_EQ_DOUBLE((double)j, get_value_array(&get_value_array(&value)[i])[j].u.n);
         }
-    }*/
+    }
+    free_value(&value);
 }
 
 static void test_parse_value_object() {
@@ -118,8 +163,9 @@ static void test_base() {
     test_parse_value_null();
     test_parse_value_false();
     test_parse_value_true();
+    test_parse_value_number();
     test_parse_value_string();
-    /*test_parse_value_array();*/
+    test_parse_value_array();
    /* test_parse_value_object();*/
 }
 

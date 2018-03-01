@@ -50,6 +50,8 @@ void free_value(cjson_value *v);
 
 void free_member(cjson_member *m);
 
+double get_value_number(cjson_value *v);
+
 void init_value(cjson_value *v);
 
 cjson_value *get_value_array(cjson_value *v);

@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <bits/huge_val.h>
+#include <math.h>
 
 /**
  * value解析器
@@ -191,6 +191,7 @@ static int parse_value_array(cjson_value *v, cjson_context *c) {
         }
         *(cjson_value *) push_context(c, sizeof(cjson_value)) = value;
         size++;
+        whitespace_context(c);
         if (*c->json == ',') {
             c->json++;
         } else if (*c->json == ']') {
@@ -451,6 +452,11 @@ void free_member(cjson_member *m) {
 value_type get_value_type(cjson_value *v) {
     assert(v != NULL);
     return v->type;
+}
+
+double get_value_number(cjson_value *v) {
+    assert(v != NULL && v->type == VALUE_NUMBER);
+    return v->u.n;
 }
 
 const char *get_value_string(cjson_value *v) {
