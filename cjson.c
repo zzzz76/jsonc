@@ -233,12 +233,12 @@ static int parse_key_string(cjson_member *m, cjson_context *c) {
     size_t len;
     for (int i = 0; c->json[i] != '\0'; ++i) {
         if (c->json[i] == '"') {
-            c->json += i+1;
+            c->json += i + 1;
             len = c->top - head;
             c->top = head;
 
-            m->key = (char *)malloc(len+1);
-            memcpy(m->key, c->stack+c->top, len);
+            m->key = (char *) malloc(len + 1);
+            memcpy(m->key, c->stack + c->top, len);
             m->key[len] = '\0';
             m->len = len;
             return PARSE_VALUE_OK;
@@ -353,7 +353,7 @@ static int parse_value_number(cjson_value *v, cjson_context *c) {
     }
 
     if (*p == 'e' || *p == 'E') {
-        p ++;
+        p++;
         if (*p == '+' || *p == '-') {
             p++;
         }
@@ -375,6 +375,7 @@ static int parse_value_number(cjson_value *v, cjson_context *c) {
     c->json = p;
     return PARSE_VALUE_OK;
 }
+
 /**
  * 分渠道解析
  *
@@ -416,6 +417,7 @@ int cjson_parse(cjson_value *v, const char *json) {
     whitespace_context(&context);
     int ret;
     if ((ret = parse_value(v, &context)) == PARSE_VALUE_OK) {
+        whitespace_context(&context);
         if (*context.json != '\0') {
             /* 元素出现冗余字符 */
             free_value(v);
@@ -479,4 +481,28 @@ size_t get_value_array_size(cjson_value *v) {
     return v->u.a.size;
 }
 
+cjson_member *get_value_object(cjson_value *v) {
+    assert(v != NULL && v->type == VALUE_OBJECT);
+    return v->u.o.object;
+}
+
+size_t get_value_object_size(cjson_value *v) {
+    assert(v != NULL && v->type == VALUE_OBJECT);
+    return v->u.o.size;
+}
+
+char *get_member_key(cjson_member *m) {
+    assert(m != NULL);
+    return m->key;
+}
+
+size_t get_member_key_len(cjson_member *m) {
+    assert(m != NULL);
+    return m->len;
+}
+
+cjson_value *get_member_value(cjson_member *m) {
+    assert(m != NULL);
+    return &m->value;
+}
 

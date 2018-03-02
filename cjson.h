@@ -58,4 +58,14 @@ cjson_value *get_value_array(cjson_value *v);
 
 size_t get_value_array_size(cjson_value *v);
 
+cjson_member *get_value_object(cjson_value *v);
+
+size_t get_value_object_size(cjson_value *v);
+
+char *get_member_key(cjson_member *m);
+
+size_t get_member_key_len(cjson_member *m);
+
+cjson_value *get_member_value(cjson_member *m);
+
 #endif //CJSON_PARSE_VALUE_H

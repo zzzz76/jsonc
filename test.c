@@ -151,12 +151,64 @@ static void test_parse_value_array() {
 }
 
 static void test_parse_value_object() {
-    do {
-        cjson_value value;
-        init_value(&value);
-        EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&value, "{\"apple\":true,\"fruit\":{\"banna\":true}}"));
-        free_value(&value);
-    } while(0);
+    cjson_value value;
+    init_value(&value);
+    EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&value, " { } "));
+    EXPECT_EQ_INT(VALUE_OBJECT, get_value_type(&value));
+    EXPECT_EQ_SIZE_T(0, get_value_object_size(&value));
+    free_value(&value);
+
+    init_value(&value);
+    EXPECT_EQ_INT(PARSE_VALUE_OK, cjson_parse(&value,
+    " { "
+            "\"n\" : null , "
+            "\"f\" : false , "
+            "\"t\" : true , "
+            "\"i\" : 123 , "
+            "\"s\" : \"abc\", "
+            "\"a\" : [ 1, 2, 3 ],"
+            "\"o\" : { \"1\" : 1, \"2\" : 2, \"3\" : 3 }"
+    " } "
+    ));
+    EXPECT_EQ_INT(VALUE_OBJECT, get_value_type(&value));
+    EXPECT_EQ_SIZE_T(7, get_value_object_size(&value));
+    EXPECT_EQ_STRING("n", get_member_key(&get_value_object(&value)[0]), get_member_key_len(&get_value_object(&value)[0]));
+    EXPECT_EQ_INT(VALUE_NULL, get_value_type(get_member_value(&get_value_object(&value)[0])));
+    EXPECT_EQ_STRING("f", get_member_key(&get_value_object(&value)[1]), get_member_key_len(&get_value_object(&value)[1]));
+    EXPECT_EQ_INT(VALUE_FALSE, get_value_type(get_member_value(&get_value_object(&value)[1])));
+    EXPECT_EQ_STRING("t", get_member_key(&get_value_object(&value)[2]), get_member_key_len(&get_value_object(&value)[2]));
+    EXPECT_EQ_INT(VALUE_TRUE, get_value_type(get_member_value(&get_value_object(&value)[2])));
+
+    EXPECT_EQ_STRING("i", get_member_key(&get_value_object(&value)[3]), get_member_key_len(&get_value_object(&value)[3]));
+    EXPECT_EQ_INT(VALUE_NUMBER, get_value_type(get_member_value(&get_value_object(&value)[3])));
+    EXPECT_EQ_DOUBLE(123.0, get_value_number(get_member_value(&get_value_object(&value)[3])));
+
+    EXPECT_EQ_STRING("s", get_member_key(&get_value_object(&value)[4]), get_member_key_len(&get_value_object(&value)[4]));
+    EXPECT_EQ_INT(VALUE_STRING, get_value_type(get_member_value(&get_value_object(&value)[4])));
+    EXPECT_EQ_STRING("abc", get_value_string(get_member_value(&get_value_object(&value)[4])), get_value_string_len(get_member_value(&get_value_object(&value)[4])));
+
+    EXPECT_EQ_STRING("a", get_member_key(&get_value_object(&value)[5]), get_member_key_len(&get_value_object(&value)[5]));
+    EXPECT_EQ_INT(VALUE_ARRAY, get_value_type(get_member_value(&get_value_object(&value)[5])));
+    EXPECT_EQ_SIZE_T(3, get_value_array_size(get_member_value(&get_value_object(&value)[5])));
+    for (size_t i = 0; i< 3; i++) {
+        EXPECT_EQ_INT(VALUE_NUMBER, get_value_type(&get_value_array(get_member_value(&get_value_object(&value)[5]))[i]));
+        EXPECT_EQ_DOUBLE((double)i+1, get_value_number(&get_value_array(get_member_value(&get_value_object(&value)[5]))[i]));
+    }
+
+    EXPECT_EQ_STRING("o", get_member_key(&get_value_object(&value)[6]), get_member_key_len(&get_value_object(&value)[6]));
+    EXPECT_EQ_INT(VALUE_OBJECT, get_value_type(get_member_value(&get_value_object(&value)[6])));
+    cjson_value *v = get_member_value(&get_value_object(&value)[6]);
+    EXPECT_EQ_SIZE_T(3, get_value_object_size(v));
+    EXPECT_EQ_STRING("1", get_member_key(&get_value_object(v)[0]), get_member_key_len(&get_value_object(v)[0]));
+    EXPECT_EQ_INT(VALUE_NUMBER, get_value_type(get_member_value(&get_value_object(v)[0])));
+    EXPECT_EQ_DOUBLE(1.0, get_value_number(get_member_value(&get_value_object(v)[0])));
+    EXPECT_EQ_STRING("2", get_member_key(&get_value_object(v)[1]), get_member_key_len(&get_value_object(v)[1]));
+    EXPECT_EQ_INT(VALUE_NUMBER, get_value_type(get_member_value(&get_value_object(v)[1])));
+    EXPECT_EQ_DOUBLE(2.0, get_value_number(get_member_value(&get_value_object(v)[1])));
+    EXPECT_EQ_STRING("3", get_member_key(&get_value_object(v)[2]), get_member_key_len(&get_value_object(v)[2]));
+    EXPECT_EQ_INT(VALUE_NUMBER, get_value_type(get_member_value(&get_value_object(v)[2])));
+    EXPECT_EQ_DOUBLE(3.0, get_value_number(get_member_value(&get_value_object(v)[2])));
+    free_value(&value);
 }
 
 static void test_base() {
@@ -166,7 +218,7 @@ static void test_base() {
     test_parse_value_number();
     test_parse_value_string();
     test_parse_value_array();
-   /* test_parse_value_object();*/
+    test_parse_value_object();
 }
 
 int main() {
