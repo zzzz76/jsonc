@@ -32,27 +32,32 @@ struct cjson_member {
 };
 
 enum {
-    PARSE_VALUE_OK = 0,
-    PARSE_VALUE_EXPECT,
-    PARSE_VALUE_INVALID,
-    PARSE_VALUE_MISS_COMMA_OR_SQUARE_BRACKET,
-    LEPT_PARSE_ROOT_NOT_SINGULAR
+    CJSON_PARSE_OK = 0,
+    CJSON_PARSE_EXPECT,
+    CJSON_PARSE_INVALID,
+    CJSON_PARSE_ROOT_NOT_SINGULAR,
+    CJSON_PARSE_NUMBER_TOO_BIG,
+    CJSON_PARSE_MISS_QUOTATION_MARK,
+    CJSON_PARSE_MISS_COMMA_OR_SQUARE_BRACKET,
+    CJSON_PARSE_MISS_COLON,
+    CJSON_PARSE_MISS_COMMA_OR_CURLY_BRACKET
 };
+
+void init_value(cjson_value *v);
+
 int cjson_parse(cjson_value *v, const char *json);
-
-value_type get_value_type(cjson_value *v);
-
-const char *get_value_string(cjson_value *v);
-
-size_t get_value_string_len(cjson_value *v);
 
 void free_value(cjson_value *v);
 
 void free_member(cjson_member *m);
 
+value_type get_value_type(cjson_value *v);
+
 double get_value_number(cjson_value *v);
 
-void init_value(cjson_value *v);
+const char *get_value_string(cjson_value *v);
+
+size_t get_value_string_len(cjson_value *v);
 
 cjson_value *get_value_array(cjson_value *v);
 

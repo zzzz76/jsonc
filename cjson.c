@@ -1,6 +1,5 @@
 #include "cjson.h"
 #include <assert.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
@@ -116,13 +115,13 @@ static int parse_value_literal(cjson_value *v, cjson_context *c, const char *lit
     size_t i;
     for (i = 0; literal[i + 1] != '\0'; ++i) {
         if (p[i] != literal[i + 1]) {
-            return PARSE_VALUE_INVALID;
+            return CJSON_PARSE_INVALID;
         }
     }
     p += i;
     c->json = p;
     v->type = type;
-    return PARSE_VALUE_OK;
+    return CJSON_PARSE_OK;
 }
 
 /**
@@ -149,12 +148,12 @@ static int parse_value_string(cjson_value *v, cjson_context *c) {
             v->u.s.s[len] = '\0';
             v->u.s.len = len;
             v->type = VALUE_STRING;
-            return PARSE_VALUE_OK;
+            return CJSON_PARSE_OK;
         }
         *(char *) push_context(c, sizeof(char)) = c->json[i];
     }
     c->top = head;
-    return PARSE_VALUE_INVALID;
+    return CJSON_PARSE_MISS_QUOTATION_MARK;
 
 }
 
@@ -179,13 +178,13 @@ static int parse_value_array(cjson_value *v, cjson_context *c) {
         v->type = VALUE_ARRAY;
         v->u.a.size = 0;
         v->u.a.array = NULL;
-        return PARSE_VALUE_OK;
+        return CJSON_PARSE_OK;
     }
     for (;;) {
         cjson_value value;
         init_value(&value);
         whitespace_context(c);
-        if ((ret = parse_value(&value, c)) != PARSE_VALUE_OK) {
+        if ((ret = parse_value(&value, c)) != CJSON_PARSE_OK) {
             /* 元素解析中出现问题 */
             break;
         }
@@ -203,10 +202,10 @@ static int parse_value_array(cjson_value *v, cjson_context *c) {
             v->u.a.size = size;
             v->u.a.array = (cjson_value *) malloc(len);
             memcpy(v->u.a.array, c->stack + c->top, len);
-            return PARSE_VALUE_OK;
+            return CJSON_PARSE_OK;
         } else {
             /* 元素出现冗余字符 */
-            ret = PARSE_VALUE_INVALID;
+            ret = CJSON_PARSE_MISS_COMMA_OR_SQUARE_BRACKET;
             break;
         }
     }
@@ -241,12 +240,12 @@ static int parse_key_string(cjson_member *m, cjson_context *c) {
             memcpy(m->key, c->stack + c->top, len);
             m->key[len] = '\0';
             m->len = len;
-            return PARSE_VALUE_OK;
+            return CJSON_PARSE_OK;
         }
         *(char *) push_context(c, sizeof(char)) = c->json[i];
     }
     c->top = head;
-    return PARSE_VALUE_INVALID;
+    return CJSON_PARSE_MISS_QUOTATION_MARK;
 }
 
 /**
@@ -269,26 +268,26 @@ static int parse_value_object(cjson_value *v, cjson_context *c) {
         v->type = VALUE_OBJECT;
         v->u.o.size = 0;
         v->u.o.object = NULL;
-        return PARSE_VALUE_OK;
+        return CJSON_PARSE_OK;
     }
     for (;;) {
         cjson_member member;
         init_member(&member);
         whitespace_context(c);
-        if ((ret = parse_key_string(&member, c)) != PARSE_VALUE_OK) {
+        if ((ret = parse_key_string(&member, c)) != CJSON_PARSE_OK) {
             /* 元素解析发生错误 */
             break;
         }
         whitespace_context(c);
         if (*c->json != ':') {
             /* 元素解析发生错误 */
-            ret = PARSE_VALUE_INVALID;
+            ret = CJSON_PARSE_MISS_COLON;
             free(member.key);
             break;
         }
         c->json++;
         whitespace_context(c);
-        if ((ret = parse_value(&member.value, c)) != PARSE_VALUE_OK) {
+        if ((ret = parse_value(&member.value, c)) != CJSON_PARSE_OK) {
             /* 元素解析错误 */
             free(member.key);
             break;
@@ -307,10 +306,10 @@ static int parse_value_object(cjson_value *v, cjson_context *c) {
             v->u.o.size = size;
             v->u.o.object = (cjson_member *) malloc(len);
             memcpy(v->u.o.object, c->stack + c->top, len);
-            return PARSE_VALUE_OK;
+            return CJSON_PARSE_OK;
         } else {
             /* 元素冗余 */
-            ret = PARSE_VALUE_INVALID;
+            ret = CJSON_PARSE_MISS_COMMA_OR_CURLY_BRACKET;
             break;
         }
     }
@@ -322,7 +321,13 @@ static int parse_value_object(cjson_value *v, cjson_context *c) {
 
 }
 
-/* 一个json有无数种组成方式，只有符合特定条件的组成方式才是number */
+/**
+ * 解析数字
+ *
+ * @param v
+ * @param c
+ * @return
+ */
 static int parse_value_number(cjson_value *v, cjson_context *c) {
     const char *p = c->json;
     if (*p == '-') {
@@ -337,7 +342,7 @@ static int parse_value_number(cjson_value *v, cjson_context *c) {
             p++;
         }
     } else {
-        return PARSE_VALUE_INVALID;
+        return CJSON_PARSE_INVALID;
     }
 
     if (*p == '.') {
@@ -348,7 +353,7 @@ static int parse_value_number(cjson_value *v, cjson_context *c) {
                 p++;
             }
         } else {
-            return PARSE_VALUE_INVALID;
+            return CJSON_PARSE_INVALID;
         }
     }
 
@@ -364,16 +369,16 @@ static int parse_value_number(cjson_value *v, cjson_context *c) {
                 p++;
             }
         } else {
-            return PARSE_VALUE_INVALID;
+            return CJSON_PARSE_INVALID;
         }
     }
     errno = 0;
     v->u.n = strtod(c->json, NULL);
     if (errno == ERANGE && (v->u.n == HUGE_VAL || v->u.n == -HUGE_VAL))
-        return PARSE_VALUE_INVALID;
+        return CJSON_PARSE_NUMBER_TOO_BIG;
     v->type = VALUE_NUMBER;
     c->json = p;
-    return PARSE_VALUE_OK;
+    return CJSON_PARSE_OK;
 }
 
 /**
@@ -398,14 +403,14 @@ static int parse_value(cjson_value *v, cjson_context *c) {
         case '{':
             return parse_value_object(v, c);
         case '\0':
-            return PARSE_VALUE_EXPECT;
+            return CJSON_PARSE_EXPECT;
         default:
             return parse_value_number(v, c);
     }
 }
 
 /**
- * json解析
+ * cjson解析
  *
  * @param v
  * @param json
@@ -416,13 +421,13 @@ int cjson_parse(cjson_value *v, const char *json) {
     init_context(&context, json);
     whitespace_context(&context);
     int ret;
-    if ((ret = parse_value(v, &context)) == PARSE_VALUE_OK) {
+    if ((ret = parse_value(v, &context)) == CJSON_PARSE_OK) {
         whitespace_context(&context);
         if (*context.json != '\0') {
             /* 元素出现冗余字符 */
             free_value(v);
             init_value(v);
-            ret = LEPT_PARSE_ROOT_NOT_SINGULAR;
+            ret = CJSON_PARSE_ROOT_NOT_SINGULAR;
         }
     }
     free(context.stack);
@@ -449,6 +454,7 @@ void free_value(cjson_value *v) {
 
 void free_member(cjson_member *m) {
     free_value(&m->value);
+    free(m->key);
 }
 
 value_type get_value_type(cjson_value *v) {
