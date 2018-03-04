@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
-project(cjson C)
+project(jsonc C)
 
 set(CMAKE_C_STANDARD 99)
 
-add_executable(cjson cjson.c test.c cjson.h)
+add_executable(jsonc jsonc.c test.c jsonc.h)

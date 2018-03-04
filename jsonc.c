@@ -1,4 +1,4 @@
-#include "cjson.h"
+#include "jsonc.h"
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,8 +13,8 @@
  * Date: 2018-02-15
  */
 
-#ifndef CJSON_PARSE_STACK_INIT_SIZE
-#define CJOSN_PARSE_STACK_INIT_SIZE 256
+#ifndef JSONC_PARSE_STACK_INIT_SIZE
+#define JSONC_PARSE_STACK_INIT_SIZE 256
 #endif
 
 typedef struct {
@@ -22,16 +22,16 @@ typedef struct {
     char *stack;
     size_t top;
     size_t len;
-} cjson_context;
+} jsonc_context;
 
-static int parse_value(cjson_value *v, cjson_context *c);
+static int parse_value(jsonc_value *v, jsonc_context *c);
 
 /**
  * 初始化缓冲区
  *
  * @param json
  */
-static void init_context(cjson_context *c, const char *json) {
+static void init_context(jsonc_context *c, const char *json) {
     assert(c != NULL);
     c->json = json;
     c->top = 0;
@@ -44,7 +44,7 @@ static void init_context(cjson_context *c, const char *json) {
  *
  * @param v
  */
-void init_value(cjson_value *v) {
+void init_value(jsonc_value *v) {
     assert(v != NULL);
     v->type = VALUE_NULL;
     v->u.n = 0;
@@ -55,7 +55,7 @@ void init_value(cjson_value *v) {
  *
  * @param m
  */
-static void init_member(cjson_member *m) {
+static void init_member(jsonc_member *m) {
     assert(m != NULL);
     m->len = 0;
     m->key = NULL;
@@ -67,7 +67,7 @@ static void init_member(cjson_member *m) {
  *
  * @param c
  */
-static void whitespace_context(cjson_context *c) {
+static void whitespace_context(jsonc_context *c) {
     const char *p = c->json;
     while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') {
         p++;
@@ -82,11 +82,11 @@ static void whitespace_context(cjson_context *c) {
  * @param size
  * @return
  */
-static void *push_context(cjson_context *c, size_t size) {
+static void *push_context(jsonc_context *c, size_t size) {
     void *ret;
     if (c->top + size >= c->len) {
         if (c->stack == NULL) {
-            c->len = CJOSN_PARSE_STACK_INIT_SIZE;
+            c->len = JSONC_PARSE_STACK_INIT_SIZE;
         }
         while (c->top + size >= c->len) {
             c->len += c->len >> 1;
@@ -107,7 +107,7 @@ static void *push_context(cjson_context *c, size_t size) {
  * @param type
  * @return
  */
-static int parse_value_literal(cjson_value *v, cjson_context *c, const char *literal, value_type type) {
+static int parse_value_literal(jsonc_value *v, jsonc_context *c, const char *literal, value_type type) {
     /* 解析过程 */
     assert(*c->json == literal[0]);
     c->json++;
@@ -115,13 +115,13 @@ static int parse_value_literal(cjson_value *v, cjson_context *c, const char *lit
     size_t i;
     for (i = 0; literal[i + 1] != '\0'; ++i) {
         if (p[i] != literal[i + 1]) {
-            return CJSON_PARSE_INVALID;
+            return JSONC_PARSE_INVALID;
         }
     }
     p += i;
     c->json = p;
     v->type = type;
-    return CJSON_PARSE_OK;
+    return JSONC_PARSE_OK;
 }
 
 /**
@@ -131,7 +131,7 @@ static int parse_value_literal(cjson_value *v, cjson_context *c, const char *lit
  * @param c
  * @return
  */
-static int parse_value_string(cjson_value *v, cjson_context *c) {
+static int parse_value_string(jsonc_value *v, jsonc_context *c) {
     assert(*c->json == '"');
     c->json++;
     size_t head = c->top;
@@ -148,12 +148,12 @@ static int parse_value_string(cjson_value *v, cjson_context *c) {
             v->u.s.s[len] = '\0';
             v->u.s.len = len;
             v->type = VALUE_STRING;
-            return CJSON_PARSE_OK;
+            return JSONC_PARSE_OK;
         }
         *(char *) push_context(c, sizeof(char)) = c->json[i];
     }
     c->top = head;
-    return CJSON_PARSE_MISS_QUOTATION_MARK;
+    return JSONC_PARSE_MISS_QUOTATION_MARK;
 
 }
 
@@ -165,7 +165,7 @@ static int parse_value_string(cjson_value *v, cjson_context *c) {
  * @param c
  * @return
  */
-static int parse_value_array(cjson_value *v, cjson_context *c) {
+static int parse_value_array(jsonc_value *v, jsonc_context *c) {
     assert(*c->json == '[');
     c->json++;
     size_t head = c->top;
@@ -178,17 +178,17 @@ static int parse_value_array(cjson_value *v, cjson_context *c) {
         v->type = VALUE_ARRAY;
         v->u.a.size = 0;
         v->u.a.array = NULL;
-        return CJSON_PARSE_OK;
+        return JSONC_PARSE_OK;
     }
     for (;;) {
-        cjson_value value;
+        jsonc_value value;
         init_value(&value);
         whitespace_context(c);
-        if ((ret = parse_value(&value, c)) != CJSON_PARSE_OK) {
+        if ((ret = parse_value(&value, c)) != JSONC_PARSE_OK) {
             /* 元素解析中出现问题 */
             break;
         }
-        *(cjson_value *) push_context(c, sizeof(cjson_value)) = value;
+        *(jsonc_value *) push_context(c, sizeof(jsonc_value)) = value;
         size++;
         whitespace_context(c);
         if (*c->json == ',') {
@@ -200,18 +200,18 @@ static int parse_value_array(cjson_value *v, cjson_context *c) {
 
             v->type = VALUE_ARRAY;
             v->u.a.size = size;
-            v->u.a.array = (cjson_value *) malloc(len);
+            v->u.a.array = (jsonc_value *) malloc(len);
             memcpy(v->u.a.array, c->stack + c->top, len);
-            return CJSON_PARSE_OK;
+            return JSONC_PARSE_OK;
         } else {
             /* 元素出现冗余字符 */
-            ret = CJSON_PARSE_MISS_COMMA_OR_SQUARE_BRACKET;
+            ret = JSONC_PARSE_MISS_COMMA_OR_SQUARE_BRACKET;
             break;
         }
     }
     for (int i = 0; i < size; ++i) {
-        c->top -= sizeof(cjson_value);
-        free_value((cjson_value *) (c->stack + c->top));
+        c->top -= sizeof(jsonc_value);
+        free_value((jsonc_value *) (c->stack + c->top));
     }
     return ret;
 
@@ -225,7 +225,7 @@ static int parse_value_array(cjson_value *v, cjson_context *c) {
  * @param c
  * @return
  */
-static int parse_key_string(cjson_member *m, cjson_context *c) {
+static int parse_key_string(jsonc_member *m, jsonc_context *c) {
     assert(*c->json == '"');
     c->json++;
     size_t head = c->top;
@@ -240,12 +240,12 @@ static int parse_key_string(cjson_member *m, cjson_context *c) {
             memcpy(m->key, c->stack + c->top, len);
             m->key[len] = '\0';
             m->len = len;
-            return CJSON_PARSE_OK;
+            return JSONC_PARSE_OK;
         }
         *(char *) push_context(c, sizeof(char)) = c->json[i];
     }
     c->top = head;
-    return CJSON_PARSE_MISS_QUOTATION_MARK;
+    return JSONC_PARSE_MISS_QUOTATION_MARK;
 }
 
 /**
@@ -255,7 +255,7 @@ static int parse_key_string(cjson_member *m, cjson_context *c) {
  * @param c
  * @return
  */
-static int parse_value_object(cjson_value *v, cjson_context *c) {
+static int parse_value_object(jsonc_value *v, jsonc_context *c) {
     assert(*c->json == '{');
     c->json++;
     int ret;
@@ -268,31 +268,31 @@ static int parse_value_object(cjson_value *v, cjson_context *c) {
         v->type = VALUE_OBJECT;
         v->u.o.size = 0;
         v->u.o.object = NULL;
-        return CJSON_PARSE_OK;
+        return JSONC_PARSE_OK;
     }
     for (;;) {
-        cjson_member member;
+        jsonc_member member;
         init_member(&member);
         whitespace_context(c);
-        if ((ret = parse_key_string(&member, c)) != CJSON_PARSE_OK) {
+        if ((ret = parse_key_string(&member, c)) != JSONC_PARSE_OK) {
             /* 元素解析发生错误 */
             break;
         }
         whitespace_context(c);
         if (*c->json != ':') {
             /* 元素解析发生错误 */
-            ret = CJSON_PARSE_MISS_COLON;
+            ret = JSONC_PARSE_MISS_COLON;
             free(member.key);
             break;
         }
         c->json++;
         whitespace_context(c);
-        if ((ret = parse_value(&member.value, c)) != CJSON_PARSE_OK) {
+        if ((ret = parse_value(&member.value, c)) != JSONC_PARSE_OK) {
             /* 元素解析错误 */
             free(member.key);
             break;
         }
-        *(cjson_member *) push_context(c, sizeof(cjson_member)) = member;
+        *(jsonc_member *) push_context(c, sizeof(jsonc_member)) = member;
         size++;
         whitespace_context(c);
         if (*c->json == ',') {
@@ -304,18 +304,18 @@ static int parse_value_object(cjson_value *v, cjson_context *c) {
 
             v->type = VALUE_OBJECT;
             v->u.o.size = size;
-            v->u.o.object = (cjson_member *) malloc(len);
+            v->u.o.object = (jsonc_member *) malloc(len);
             memcpy(v->u.o.object, c->stack + c->top, len);
-            return CJSON_PARSE_OK;
+            return JSONC_PARSE_OK;
         } else {
             /* 元素冗余 */
-            ret = CJSON_PARSE_MISS_COMMA_OR_CURLY_BRACKET;
+            ret = JSONC_PARSE_MISS_COMMA_OR_CURLY_BRACKET;
             break;
         }
     }
     for (int i = 0; i < size; ++i) {
-        c->top -= sizeof(cjson_member);
-        free_member((cjson_member *) (c->stack + c->top));
+        c->top -= sizeof(jsonc_member);
+        free_member((jsonc_member *) (c->stack + c->top));
     }
     return ret;
 
@@ -328,7 +328,7 @@ static int parse_value_object(cjson_value *v, cjson_context *c) {
  * @param c
  * @return
  */
-static int parse_value_number(cjson_value *v, cjson_context *c) {
+static int parse_value_number(jsonc_value *v, jsonc_context *c) {
     const char *p = c->json;
     if (*p == '-') {
         p++;
@@ -342,7 +342,7 @@ static int parse_value_number(cjson_value *v, cjson_context *c) {
             p++;
         }
     } else {
-        return CJSON_PARSE_INVALID;
+        return JSONC_PARSE_INVALID;
     }
 
     if (*p == '.') {
@@ -353,7 +353,7 @@ static int parse_value_number(cjson_value *v, cjson_context *c) {
                 p++;
             }
         } else {
-            return CJSON_PARSE_INVALID;
+            return JSONC_PARSE_INVALID;
         }
     }
 
@@ -369,16 +369,16 @@ static int parse_value_number(cjson_value *v, cjson_context *c) {
                 p++;
             }
         } else {
-            return CJSON_PARSE_INVALID;
+            return JSONC_PARSE_INVALID;
         }
     }
     errno = 0;
     v->u.n = strtod(c->json, NULL);
     if (errno == ERANGE && (v->u.n == HUGE_VAL || v->u.n == -HUGE_VAL))
-        return CJSON_PARSE_NUMBER_TOO_BIG;
+        return JSONC_PARSE_NUMBER_TOO_BIG;
     v->type = VALUE_NUMBER;
     c->json = p;
-    return CJSON_PARSE_OK;
+    return JSONC_PARSE_OK;
 }
 
 /**
@@ -388,7 +388,7 @@ static int parse_value_number(cjson_value *v, cjson_context *c) {
  * @param c
  * @return
  */
-static int parse_value(cjson_value *v, cjson_context *c) {
+static int parse_value(jsonc_value *v, jsonc_context *c) {
     switch (*c->json) {
         case 'n':
             return parse_value_literal(v, c, "null", VALUE_NULL);
@@ -403,38 +403,38 @@ static int parse_value(cjson_value *v, cjson_context *c) {
         case '{':
             return parse_value_object(v, c);
         case '\0':
-            return CJSON_PARSE_EXPECT;
+            return JSONC_PARSE_EXPECT;
         default:
             return parse_value_number(v, c);
     }
 }
 
 /**
- * cjson解析
+ * jsonc解析
  *
  * @param v
  * @param json
  * @return
  */
-int cjson_parse(cjson_value *v, const char *json) {
-    cjson_context context;
+int jsonc_parse(jsonc_value *v, const char *json) {
+    jsonc_context context;
     init_context(&context, json);
     whitespace_context(&context);
     int ret;
-    if ((ret = parse_value(v, &context)) == CJSON_PARSE_OK) {
+    if ((ret = parse_value(v, &context)) == JSONC_PARSE_OK) {
         whitespace_context(&context);
         if (*context.json != '\0') {
             /* 元素出现冗余字符 */
             free_value(v);
             init_value(v);
-            ret = CJSON_PARSE_ROOT_NOT_SINGULAR;
+            ret = JSONC_PARSE_ROOT_NOT_SINGULAR;
         }
     }
     free(context.stack);
     return ret;
 }
 
-void free_value(cjson_value *v) {
+void free_value(jsonc_value *v) {
     if (v->type == VALUE_STRING) {
         free(v->u.s.s);
     }
@@ -452,62 +452,62 @@ void free_value(cjson_value *v) {
     }
 }
 
-void free_member(cjson_member *m) {
+void free_member(jsonc_member *m) {
     free_value(&m->value);
     free(m->key);
 }
 
-value_type get_value_type(cjson_value *v) {
+value_type get_value_type(jsonc_value *v) {
     assert(v != NULL);
     return v->type;
 }
 
-double get_value_number(cjson_value *v) {
+double get_value_number(jsonc_value *v) {
     assert(v != NULL && v->type == VALUE_NUMBER);
     return v->u.n;
 }
 
-const char *get_value_string(cjson_value *v) {
+const char *get_value_string(jsonc_value *v) {
     assert(v != NULL && v->type == VALUE_STRING);
     return v->u.s.s;
 }
 
-size_t get_value_string_len(cjson_value *v) {
+size_t get_value_string_len(jsonc_value *v) {
     assert(v != NULL && v->type == VALUE_STRING);
     return v->u.s.len;
 }
 
-cjson_value *get_value_array(cjson_value *v) {
+jsonc_value *get_value_array(jsonc_value *v) {
     assert(v != NULL && v->type == VALUE_ARRAY);
     return v->u.a.array;
 }
 
-size_t get_value_array_size(cjson_value *v) {
+size_t get_value_array_size(jsonc_value *v) {
     assert(v != NULL && v->type == VALUE_ARRAY);
     return v->u.a.size;
 }
 
-cjson_member *get_value_object(cjson_value *v) {
+jsonc_member *get_value_object(jsonc_value *v) {
     assert(v != NULL && v->type == VALUE_OBJECT);
     return v->u.o.object;
 }
 
-size_t get_value_object_size(cjson_value *v) {
+size_t get_value_object_size(jsonc_value *v) {
     assert(v != NULL && v->type == VALUE_OBJECT);
     return v->u.o.size;
 }
 
-char *get_member_key(cjson_member *m) {
+char *get_member_key(jsonc_member *m) {
     assert(m != NULL);
     return m->key;
 }
 
-size_t get_member_key_len(cjson_member *m) {
+size_t get_member_key_len(jsonc_member *m) {
     assert(m != NULL);
     return m->len;
 }
 
-cjson_value *get_member_value(cjson_member *m) {
+jsonc_value *get_member_value(jsonc_member *m) {
     assert(m != NULL);
     return &m->value;
 }
